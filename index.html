@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>IRC JL</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js" integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" crossorigin="anonymous"></script>
+    <link href="/jquery.cssemoticons.css" media="screen" rel="stylesheet" type="text/css" />
+    <script src="/jquery.cssemoticons.js" type="text/javascript"></script>
+    <style>
+        body
+        {
+            background-image: url("./leaves.png");
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        #messages {
+            background-color: rgb(237, 250, 246);
+            width: 50vw;
+            height: 500px;
+            border: 1px solid black;
+            margin: 10px 0;
+            padding: 5px;
+            overflow-y: scroll;
+            word-wrap: break-word;
+        }
+        
+        #inputs {
+            width: 50vw;
+            padding: 5px;
+            display: flex;
+        }
+        #message_text
+        {
+            background-color: rgb(255, 255, 255);
+            
+        }
+        #message_text:hover
+        {
+            background-color: rgb(230, 230, 230);
+        }
+        #message_text:focus
+        {
+            background-color: rgb(230, 230, 230);
+        }
+        #button
+        {
+            border: 1px solid black;
+            border-radius: 10%;
+        }
+        #button:hover
+        {
+            background-color: lightgray;
+        }
+        
+        
+        #inputs input {
+            flex: 9;
+            margin-right: 10px;
+        }
+        
+        #inputs button {
+            flex: 1;
+        }
+        /* Jquery Tiny scrollbar styles */
+        
+        #chatlist {
+            width: 520px;
+            clear: both;
+            margin: 20px 0 10px;
+        }
+        
+        #chatlist .viewport {
+            width: 500px;
+            height: 200px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        #chatlist .overview {
+            list-style: none;
+            position: absolute;
+            left: 0;
+            top: 0;
+        }
+        
+        #chatlist .thumb .end,
+        #chatlist .thumb {
+            background-color: #003D5D;
+        }
+        
+        #chatlist .scrollbar {
+            position: relative;
+            float: right;
+            width: 15px;
+        }
+        
+        #chatlist .track {
+            background-color: #D8EEFD;
+            height: 100%;
+            width: 13px;
+            position: relative;
+            padding: 0 1px;
+        }
+        
+        #chatlist .thumb {
+            height: 20px;
+            width: 13px;
+            cursor: pointer;
+            overflow: hidden;
+            position: absolute;
+            top: 0;
+        }
+        
+        #chatlist .thumb .end {
+            overflow: hidden;
+            height: 5px;
+            width: 13px;
+        }
+        
+        #chatlist .disable {
+            display: none;
+        }
+        
+        .noSelect {
+            user-select: none;
+            -o-user-select: none;
+            -moz-user-select: none;
+            -khtml-user-select: none;
+            -webkit-user-select: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="messages">
+        <div class="scrollbar">
+            <div class="track">
+                <div class="thumb">
+                    <div class="end"></div>
+                </div>
+            </div>
+        </div>
+        <div class="viewport">
+            <div class="overview">
+            </div>
+        </div>
+    </div>
+    <div id="inputs">
+        <input type="text" id="message_text" />
+        <button id="button" onclick="sendMessage()">Send</button>
+    </div>
+    <script defer>
+        if (!localStorage.getItem('user')) {
+            let nick = prompt('Wpisz nick:', 'Anonymous');
+
+            if (nick == null || nick == '') {
+                nick = 'Anonymous';
+            }
+
+            localStorage.setItem('user', nick);
+            localStorage.setItem('color', Math.floor(Math.random() * 16777215).toString(16));
+        }
+
+        function sendMessage() {
+            let message = document.getElementById('message_text').value;
+
+            if (message == '') {
+                return;
+            } else if (message.charAt(0) == '/') {
+                let words = message.split(' ');
+
+                if (words[0] == '/nick') {
+                    if (words[1] != '') {
+                        localStorage.setItem('user', words[1]);
+                    }
+                } else if (words[0] == '/color') {
+                    if (words[1] != '') {
+                        if (/^[0-9A-F]{6}$/i.test(words[1])) {
+                            localStorage.setItem('color', words[1]);
+                        }
+                    }
+                } else if (words[0] == '/quit') {
+                    localStorage.clear();
+                    window.location.reload(true);
+                }
+
+                document.getElementById('message_text').value = '';
+                return;
+            }
+
+            let data = JSON.stringify({
+                user: localStorage.getItem('user'),
+                color: localStorage.getItem('color'),
+                message,
+            });
+            $.ajax({
+                method: 'POST',
+                contentType: 'application/json',
+                url: '/sendMessage',
+                data,
+                complete: function() {
+                    document.getElementById('message_text').value = '';
+                },
+            });
+        }
+
+        function updateMessages(data) {
+            let messages = document.getElementById('messages').innerHTML;
+
+            let time = new Date();
+
+            let message = `<span id="time">[${time.getHours()}:${time.getMinutes()}]</span><span id="nick" style="color: #${
+                    data.color
+                }"><@${data.user}></span> <span class="message">${data.message}</span></br>`;
+
+            let text = messages + message;
+
+            document.querySelector('.overview').innerHTML = text;
+
+            $('.message').each(function() {
+                $(this).emoticonize();
+            });
+
+            document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
+        }
+
+        function longPoll() {
+            request().then((res) => {
+                updateMessages(res);
+                longPoll();
+            })
+        }
+
+        async function request() {
+            let res = await $.ajax({
+                method: 'GET',
+                url: '/events'
+            });
+
+            return res;
+        }
+
+        document.addEventListener('keyup', (e) => {
+            if (e.key == 'Enter') {
+                sendMessage();
+            }
+        });
+
+        longPoll();
+    </script>
+</body>
+
+</html>
